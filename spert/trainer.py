@@ -24,15 +24,17 @@ class BaseTrainer:
         self._args = args
         self._debug = self._args.debug
 
-        run_key = str(datetime.datetime.now()).replace(' ', '_')
+        # run_key = str(datetime.datetime.now()).replace(' ', '_')
 
         if hasattr(args, 'save_path'):
-            self._save_path = os.path.join(self._args.save_path, self._args.label, run_key)
+            # self._save_path = os.path.join(self._args.save_path, self._args.label, run_key)
+            self._save_path = os.path.join(self._args.save_path, self._args.label)
             util.create_directories_dir(self._save_path)
 
         # logging
         if hasattr(args, 'log_path'):
-            self._log_path = os.path.join(self._args.log_path, self._args.label, run_key)
+            # self._log_path = os.path.join(self._args.log_path, self._args.label, run_key)
+            self._log_path = os.path.join(self._args.log_path, self._args.label)
             util.create_directories_dir(self._log_path)
 
             self._log_paths = dict()
