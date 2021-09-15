@@ -43,7 +43,7 @@ def crest_to_spert(datapath):
         
         example['entities'] = entities
 
-        if data['label'][i] == 1:
+        if data['label'][i] == 1 and len(entities) == 2:
             relations.append({"type": "Cause-Effect", "head": 0, "tail": 1})
         
         example["relations"] = relations

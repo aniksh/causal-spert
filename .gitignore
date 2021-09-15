@@ -111,3 +111,5 @@ tmp/
 runs/
 *.state
 checkpoint
+logs/
+bert-base-cased/

@@ -73,8 +73,8 @@ if __name__ == '__main__':
     args.store_predictions = True
     args.store_examples = True
     args.final_eval = True
-    args.log_path = "data/log"
-    args.save_path = "data/save"
+    args.log_path = "/gpfs/u/home/SNTE/SNTEnksh/scratch/output/spert/log"
+    args.save_path = "/gpfs/u/home/SNTE/SNTEnksh/scratch/output/spert/save"
 
     if args.mode == 'train':
         _train(args)
