@@ -68,7 +68,7 @@ if __name__ == '__main__':
     args.train_path = "data/datasets/%s/train.json" % args.dataset
     args.valid_path = "data/datasets/%s/test.json" % args.dataset
     args.test_path = "data/datasets/%s/test.json" % args.dataset
-    args.types_path = "data/datasets/%s/%s_types.json" % (args.dataset, args.dataset)
+    args.types_path = "data/datasets/%s/types.json" % args.dataset
     args.eval_batch_size = args.train_batch_size
     args.store_predictions = True
     args.store_examples = True

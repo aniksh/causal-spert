@@ -75,6 +75,12 @@ def main(args):
     
     with open(os.path.join(args.output_dir, 'test.json'), 'w') as f:
         json.dump(test, f)
+    
+    types = {"entities": {"Cause": {"short": "C", "verbose": "Cause"}, "Effect": {"short": "E", "verbose": "Effect"}}, 
+            "relations": {"Cause-Effect": {"short": "CE", "verbose": "Cause-Effect", "symmetric": False}}}
+    
+    with open(os.path.join(args.output_dir, 'types.json'), 'w') as f:
+        json.dump(types, f)
 
 
 if __name__ == "__main__":
