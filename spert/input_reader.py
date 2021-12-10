@@ -153,6 +153,8 @@ class JsonInputReader(BaseInputReader):
         for entity_idx, jentity in enumerate(jentities):
             entity_type = self._entity_types[jentity['type']]
             start, end = jentity['start'], jentity['end']
+            if end > len(doc_tokens):
+              continue
 
             # create entity mention
             tokens = doc_tokens[start:end]
@@ -164,6 +166,8 @@ class JsonInputReader(BaseInputReader):
 
     def _parse_relations(self, jrelations, entities, dataset) -> List[Relation]:
         relations = []
+        if len(entities) < 2:
+          return relations
 
         for jrelation in jrelations:
             relation_type = self._relation_types[jrelation['type']]
@@ -224,7 +228,7 @@ class JsonPredictionInputReader(BaseInputReader):
         return document
 
 
-def _parse_tokens(jtokens, dataset, tokenizer):
+def _parse_tokens(jtokens, dataset, tokenizer, max_tokens=512):
     doc_tokens = []
 
     # full document encoding including special tokens ([CLS] and [SEP]) and byte-pair encodings of original tokens
@@ -241,7 +245,10 @@ def _parse_tokens(jtokens, dataset, tokenizer):
 
         doc_tokens.append(token)
         doc_encoding += token_encoding
+        if len(doc_encoding) >= max_tokens - 1:
+          break
 
+    doc_encoding = doc_encoding[:max_tokens - 1]
     doc_encoding += [tokenizer.convert_tokens_to_ids('[SEP]')]
 
     return doc_tokens, doc_encoding

@@ -10,6 +10,8 @@ def _add_common_args(arg_parser):
     # Preprocessing
     arg_parser.add_argument('--tokenizer_path', type=str, help="Path to tokenizer")
     arg_parser.add_argument('--max_span_size', type=int, default=10, help="Maximum size of spans")
+    arg_parser.add_argument('--learn_span_size', action='store_true', default=False, 
+                            help="Learn the maximum span size")
     arg_parser.add_argument('--lowercase', action='store_true', default=False,
                             help="If true, input is lowercased during preprocessing")
     arg_parser.add_argument('--sampling_processes', type=int, default=4,

@@ -62,6 +62,12 @@ class SpERTTrainer(BaseTrainer):
 
         # load model
         model = self._load_model(input_reader)
+        if args.learn_span_size:
+            self.si = torch.multinomial(model.theta, 1).to(self._device)
+            max_span_size = model.span_sizes[self.si.item()]
+            train_dataset._max_span_size = max_span_size
+            theta_opt = torch.optim.SGD([model.theta], lr=0.01)
+        
 
         # SpERT is currently optimized on a single GPU and not thoroughly tested in a multi GPU setup
         # If you still want to train SpERT on multiple GPUs, uncomment the following lines
@@ -90,9 +96,12 @@ class SpERTTrainer(BaseTrainer):
         # train
         for epoch in range(args.epochs):
             # train epoch
-            self._train_epoch(model, compute_loss, optimizer, train_dataset, updates_epoch, epoch)
+            self._train_epoch(model, compute_loss, optimizer, theta_opt, train_dataset, updates_epoch, epoch)
 
             # eval validation sets
+            if self._args.learn_span_size:
+                max_span_size = model.span_sizes[torch.argmax(model.theta)]
+                validation_dataset._max_span_size = max_span_size
             if not args.final_eval or (epoch == args.epochs - 1):
                 self._eval(model, validation_dataset, input_reader, epoch + 1, updates_epoch)
 
@@ -125,7 +134,12 @@ class SpERTTrainer(BaseTrainer):
 
         # load model
         model = self._load_model(input_reader)
+        print(model.theta)
+        # return
         model.to(self._device)
+        if self._args.learn_span_size:
+            max_span_size = model.span_sizes[torch.argmax(model.theta)]
+            test_dataset._max_span_size = max_span_size
 
         # evaluate
         self._eval(model, test_dataset, input_reader)
@@ -145,6 +159,10 @@ class SpERTTrainer(BaseTrainer):
         model = self._load_model(input_reader)
         model.to(self._device)
 
+        if self._args.learn_span_size:
+            max_span_size = model.span_sizes[torch.argmax(model.theta)]
+            dataset._max_span_size = max_span_size
+
         self._predict(model, dataset, input_reader)
 
     def _load_model(self, input_reader):
@@ -157,6 +175,7 @@ class SpERTTrainer(BaseTrainer):
         model = model_class.from_pretrained(self._args.model_path,
                                             config=config,
                                             # SpERT model parameters
+                                            learn_span_size=self._args.learn_span_size,
                                             cls_token=self._tokenizer.convert_tokens_to_ids('[CLS]'),
                                             relation_types=input_reader.relation_type_count - 1,
                                             entity_types=input_reader.entity_type_count,
@@ -168,8 +187,8 @@ class SpERTTrainer(BaseTrainer):
 
         return model
 
-    def _train_epoch(self, model: torch.nn.Module, compute_loss: Loss, optimizer: Optimizer, dataset: Dataset,
-                     updates_epoch: int, epoch: int):
+    def _train_epoch(self, model: torch.nn.Module, compute_loss: Loss, optimizer: Optimizer, theta_opt: Optimizer,
+                    dataset: Dataset, updates_epoch: int, epoch: int):
         self._logger.info("Train epoch: %s" % epoch)
 
         # create data loader
@@ -196,13 +215,24 @@ class SpERTTrainer(BaseTrainer):
                                               entity_sample_masks=batch['entity_sample_masks'],
                                               rel_sample_masks=batch['rel_sample_masks'])
 
+            if self._args.learn_span_size:
+                one_hot_theta = torch.nn.functional.one_hot(self.si.squeeze(), len(model.span_sizes))
+                softmax_theta = torch.nn.functional.softmax(model.theta, dim=-1)
+                model.theta.grad = batch_loss * (one_hot_theta - softmax_theta)
+                theta_opt.step()
+
+                self.si = torch.multinomial(model.theta, 1).to(self._device)
+                max_span_size = model.span_sizes[self.si.item()]
+                dataset._max_span_size = max_span_size
+            
             # logging
             iteration += 1
             global_iteration = epoch * updates_epoch + iteration
 
             if global_iteration % self._args.train_log_iter == 0:
-                self._log_train(optimizer, batch_loss, epoch, iteration, global_iteration, dataset.label)
-
+                print(model.theta)
+                self._log_train(optimizer, batch_loss.item(), epoch, iteration, global_iteration, dataset.label)
+                
         return iteration
 
     def _eval(self, model: torch.nn.Module, dataset: Dataset, input_reader: BaseInputReader,
@@ -292,7 +322,7 @@ class SpERTTrainer(BaseTrainer):
         prediction.store_predictions(dataset.documents, pred_entities, pred_relations, self._args.predictions_path)
 
     def _get_optimizer_params(self, model):
-        param_optimizer = list(model.named_parameters())
+        param_optimizer = [(n,p) for (n,p) in model.named_parameters() if 'theta' not in n]
         no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
         optimizer_params = [
             {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],

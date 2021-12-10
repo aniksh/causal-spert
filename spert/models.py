@@ -17,6 +17,10 @@ def get_token(h: torch.tensor, x: torch.tensor, token: int):
 
     # get contextualized embedding of given token
     token_h = token_h[flat == token, :]
+    # except Exception as e:
+    #     print(token)
+    #     print(token_h)
+    #     raise e
 
     return token_h
 
@@ -27,7 +31,8 @@ class SpERT(BertPreTrainedModel):
     VERSION = '1.1'
 
     def __init__(self, config: BertConfig, cls_token: int, relation_types: int, entity_types: int,
-                 size_embedding: int, prop_drop: float, freeze_transformer: bool, max_pairs: int = 100):
+                 size_embedding: int, prop_drop: float, freeze_transformer: bool, max_pairs: int = 100,
+                 learn_span_size: bool = False):
         super(SpERT, self).__init__(config)
 
         # BERT model
@@ -36,8 +41,11 @@ class SpERT(BertPreTrainedModel):
         # layers
         self.rel_classifier = nn.Linear(config.hidden_size * 3 + size_embedding * 2, relation_types)
         self.entity_classifier = nn.Linear(config.hidden_size * 2 + size_embedding, entity_types)
-        self.size_embeddings = nn.Embedding(100, size_embedding)
+        self.size_embeddings = nn.Embedding(200, size_embedding)
         self.dropout = nn.Dropout(prop_drop)
+        if learn_span_size:
+            self.span_sizes = list(range(5,41,20))
+            self.theta = nn.Parameter(0.5 + 0.01 * torch.randn(len(self.span_sizes)), requires_grad=False)
 
         self._cls_token = cls_token
         self._relation_types = relation_types
@@ -224,6 +232,15 @@ class SpERT(BertPreTrainedModel):
         else:
             return self._forward_inference(*args, **kwargs)
 
+
+class SpERTparse(SpERT):
+    def __init__(self, config: BertConfig, cls_token: int, relation_types: int, entity_types: int,
+                 size_embedding: int, prop_drop: float, freeze_transformer: bool, max_pairs: int = 100):
+        super(SpERTparse).__init__(config, cls_token, relation_types, entity_types, 
+                                    size_embedding, prop_drop, freeze_transformer, max_pairs)
+    
+    def _forward_train(self):
+        return
 
 # Model access
 

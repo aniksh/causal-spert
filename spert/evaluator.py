@@ -3,6 +3,7 @@ import os
 import warnings
 from typing import List, Tuple, Dict
 
+import numpy as np
 import torch
 from sklearn.metrics import precision_recall_fscore_support as prfs
 from transformers import BertTokenizer
@@ -60,8 +61,8 @@ class Evaluator:
         print("--- Entities (named entity recognition (NER)) ---")
         print("An entity is considered correct if the entity type and span is predicted correctly")
         print("")
-        gt, pred = self._convert_by_setting(self._gt_entities, self._pred_entities, include_entity_types=True)
-        ner_eval = self._score(gt, pred, print_results=True)
+        gt, pred = self._convert_by_setting(self._gt_entities, self._pred_entities, include_entity_types=True, include_score=False)
+        ner_eval = self._score(gt, pred, print_results=True, entity=True)
 
         print("")
         print("--- Relations ---")
@@ -190,7 +191,7 @@ class Evaluator:
 
         return converted_gt, converted_pred
 
-    def _score(self, gt: List[List[Tuple]], pred: List[List[Tuple]], print_results: bool = False):
+    def _score(self, gt: List[List[Tuple]], pred: List[List[Tuple]], print_results: bool = False, entity: bool = False):
         assert len(gt) == len(pred)
 
         gt_flat = []
@@ -218,6 +219,78 @@ class Evaluator:
                     pred_flat.append(0)
 
         metrics = self._compute_metrics(gt_flat, pred_flat, types, print_results)
+
+        # Check if entity
+        if not entity:
+            return metrics
+        
+        # Partial matching
+        print("\n===Partial Matching===\n")
+        total_gt = 0
+        total_pred = 0
+        total_gt_p = 0
+        total_pred_p = 0
+        match = 0
+        match_p = 0
+
+        for (sample_gt, sample_pred) in zip(gt, pred):
+            # total_gt += len(sample_gt)
+            # total_pred += len(sample_pred)
+            # match += len(set(sample_gt).intersection(set(sample_pred)))
+            # 
+            # # Match all spans
+            # for s in sample_gt:
+            #     gt_p = 0
+            #     for p in sample_pred:
+            #         if p[2] == s[2]:
+            #             match_p += min(s[1], p[1]) -  max(s[0], p[0])
+            #             gt_p += s[1] - s[0]
+            #     if gt_p == 0:
+            #         gt_p = s[1] - s[0]
+            #      
+            #     total_gt_p += gt_p
+            #     
+            #                                   
+            # for s in sample_pred:
+            #     total_pred_p += s[1] - s[0]
+
+            # Select longest span 
+            for t in types:
+                long_p = None
+                best = 0
+                for p in sample_pred:
+                    if p[2] == t:
+                        score = p[1] - p[0]
+                        if score > best:
+                            best = score
+                            long_p = p
+
+                for s in sample_gt:
+                    if s[2] == t:
+                        total_gt += 1
+                        total_gt_p += s[1] - s[0]
+                        
+                        if long_p is not None:
+                            match += 1 if s[0] == long_p[0] and s[1] == long_p[1] else 0
+                            total_pred += 1
+
+                            match_p += len(set(range(s[0], s[1])).intersection(set(range(long_p[0], long_p[1]))))
+                            # match_p += max(min(s[1], long_p[1]) -  max(s[0], long_p[0]), 0)
+                            total_pred_p += long_p[1] - long_p[0]
+                            
+            
+        prec = match * 1.0 / total_pred * 100 if total_pred != 0 else 0
+        rec = match * 1.0 / total_gt * 100 if total_gt != 0 else 0
+        f1 = 2.0 * prec * rec / (prec + rec) if prec != 0 or rec != 0 else 0
+
+        print("\n".join(["precision: %.2f" %prec, "recall: %.2f" %rec, "f1: %.2f" %f1]))
+
+        prec_p = match_p * 1.0 / total_pred_p * 100 if total_pred_p != 0 else 0
+        rec_p = match_p * 1.0 / total_gt_p * 100 if total_gt_p != 0 else 0
+        f1_p = 2.0 * prec_p * rec_p / (prec_p + rec_p) if prec_p != 0 or rec_p != 0 else 0
+
+        print("\n".join(["precision_p: %.2f" %prec_p, "recall_p: %.2f" %rec_p, "f1_p: %.2f" %f1_p])) 
+
         return metrics
 
     def _compute_metrics(self, gt_all, pred_all, types, print_results: bool = False):

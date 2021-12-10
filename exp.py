@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from args import train_argparser, eval_argparser, predict_argparser
 from spert import input_reader
@@ -33,7 +34,7 @@ def _eval(args):
     print(run_args_dict)
     
     trainer = SpERTTrainer(run_args)
-    trainer.eval(dataset_path=run_args.test_path, types_path=run_args.types_path,
+    trainer.eval(dataset_path=run_args.dataset_path, types_path=run_args.types_path,
                  input_reader_cls=input_reader.JsonInputReader)
 
 
@@ -53,7 +54,6 @@ def __predict(run_args):
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(add_help=False)
     arg_parser.add_argument('mode', type=str, help="Mode: 'train' or 'eval'")
-    arg_parser.add_argument('--label', type=str, default=None)
     arg_parser.add_argument('--dataset', type=str, default=None)
     arg_parser.add_argument('--model_path', type=str, default=None)
     arg_parser.add_argument('--tokenizer_path', type=str, default=None)
@@ -65,17 +65,26 @@ if __name__ == '__main__':
     args, _ = arg_parser.parse_known_args()
 
     # Set default values
+    args.label = "{}-batch{}-epoch{}-neg{}-span{}".format(args.dataset,
+                                                          args.train_batch_size,
+                                                          args.epochs,
+                                                          args.neg_entity_count,
+                                                          args.max_span_size)
     args.train_path = "data/datasets/%s/train.json" % args.dataset
     args.valid_path = "data/datasets/%s/test.json" % args.dataset
-    args.test_path = "data/datasets/%s/test.json" % args.dataset
+    args.dataset_path = "data/datasets/%s/test.json" % args.dataset
     args.types_path = "data/datasets/%s/types.json" % args.dataset
-    args.eval_batch_size = args.train_batch_size
+    args.eval_batch_size = 1
     args.store_predictions = True
-    args.store_examples = True
+    # args.store_examples = True
     args.final_eval = True
+    # args.max_pairs = 100
     args.log_path = "/gpfs/u/home/SNTE/SNTEnksh/scratch/output/spert/log"
     args.save_path = "/gpfs/u/home/SNTE/SNTEnksh/scratch/output/spert/save"
-
+    if args.mode != "train":
+      args.model_path = os.path.join(args.save_path, args.label, "final_model")
+      args.tokenizer_path = args.model_path
+    
     if args.mode == 'train':
         _train(args)
     elif args.mode == 'eval':

@@ -16,7 +16,7 @@ class SpERTLoss(Loss):
         self._optimizer = optimizer
         self._scheduler = scheduler
         self._max_grad_norm = max_grad_norm
-
+        
     def compute(self, entity_logits, rel_logits, entity_types, rel_types, entity_sample_masks, rel_sample_masks):
         # entity loss
         entity_logits = entity_logits.view(-1, entity_logits.shape[-1])
@@ -43,10 +43,10 @@ class SpERTLoss(Loss):
         else:
             # corner case: no positive/negative relation samples
             train_loss = entity_loss
-
+        
         train_loss.backward()
         torch.nn.utils.clip_grad_norm_(self._model.parameters(), self._max_grad_norm)
         self._optimizer.step()
         self._scheduler.step()
         self._model.zero_grad()
-        return train_loss.item()
+        return train_loss
