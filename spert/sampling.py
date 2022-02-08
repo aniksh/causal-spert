@@ -4,8 +4,16 @@ import torch
 
 from spert import util
 
+# import spacy
+# from spacy.tokens import Doc
+# from benepar import BeneparComponent
+# 
+# 
+# nlp = spacy.load("en_core_web_sm", disable=["tagger", "ner"])
+# nlp.add_pipe(BeneparComponent("benepar_en3"))
 
-def create_train_sample(doc, neg_entity_count: int, neg_rel_count: int, max_span_size: int, rel_type_count: int):
+
+def create_train_sample(doc, neg_entity_count: int, neg_rel_count: int, max_span_size: int, rel_type_count: int, span_sizes, span_counts):
     encodings = doc.encoding
     token_count = len(doc.tokens)
     context_size = len(encodings)
@@ -42,18 +50,63 @@ def create_train_sample(doc, neg_entity_count: int, neg_rel_count: int, max_span
         pos_rel_masks.append(create_rel_mask(s1, s2, context_size))
 
     # negative entities
-    neg_entity_spans, neg_entity_sizes = [], []
-    for size in range(1, max_span_size + 1):
-        for i in range(0, (token_count - size) + 1):
-            span = doc.tokens[i:i + size].span
+    if max_span_size:
+        neg_entity_spans, neg_entity_sizes = [], []
+        for size in range(1, max_span_size + 1):
+            for i in range(0, (token_count - size) + 1):
+                span = doc.tokens[i:i + size].span
+                if span not in pos_entity_spans:
+                    neg_entity_spans.append(span)
+                    neg_entity_sizes.append(size)
+
+        # sample negative entities
+        neg_entity_samples = random.sample(list(zip(neg_entity_spans, neg_entity_sizes)),
+                                           min(len(neg_entity_spans), neg_entity_count))
+        neg_entity_spans, neg_entity_sizes = zip(*neg_entity_samples) if neg_entity_samples else ([], [])
+    else:
+        # # Sample from size distribution
+        # #ratio = (token_count / 2) / span_sizes[-1]
+        # for i, s in enumerate(span_sizes):
+        #     if s > token_count:
+        #         span_sizes = span_sizes[:i]
+        #         span_counts = span_counts[:i]
+        # sizes = random.choices(span_sizes, span_counts, k=neg_entity_count)
+        # neg_entity_sizes = []
+        # neg_entity_spans = []
+        # for size in sizes:
+        #     #size = int(size * ratio)
+        #     if size < 1:
+        #        continue
+        #     start = random.randrange(token_count - size + 1)
+        #     span = doc.tokens[start : start + size].span
+        #     while span in pos_entity_spans:
+        #         start = random.randrange(token_count - size + 1)
+        #         span = doc.tokens[start : start + size].span
+
+        #     neg_entity_sizes.append(size)
+        #     neg_entity_spans.append(span)
+
+        # docsp = Doc(nlp.vocab, words=[t.phrase for t in doc.tokens])
+        # for name, proc in nlp.pipeline:
+        #     docsp = proc(docsp)
+
+        # for s in docsp.sents:
+        #     for c in s._.constituents:
+        #         span = doc.tokens[c.start:c.end].span
+        
+        neg_entity_spans, neg_entity_sizes = [], []
+        for span in doc.spans:
             if span not in pos_entity_spans:
                 neg_entity_spans.append(span)
-                neg_entity_sizes.append(size)
+                neg_entity_sizes.append(len(span))
+       
+        # sample negative entities
+        neg_entity_samples = random.sample(list(zip(neg_entity_spans, neg_entity_sizes)),
+                                           min(len(neg_entity_spans), neg_entity_count))
+        neg_entity_spans, neg_entity_sizes = zip(*neg_entity_samples) if neg_entity_samples else ([], [])
 
-    # sample negative entities
-    neg_entity_samples = random.sample(list(zip(neg_entity_spans, neg_entity_sizes)),
-                                       min(len(neg_entity_spans), neg_entity_count))
-    neg_entity_spans, neg_entity_sizes = zip(*neg_entity_samples) if neg_entity_samples else ([], [])
+    if len(neg_entity_spans) == 0:
+        print(ratio, sizes)
 
     neg_entity_masks = [create_entity_mask(*span, context_size) for span in neg_entity_spans]
     neg_entity_types = [0] * len(neg_entity_spans)

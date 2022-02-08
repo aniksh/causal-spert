@@ -49,4 +49,4 @@ class SpERTLoss(Loss):
         self._optimizer.step()
         self._scheduler.step()
         self._model.zero_grad()
-        return train_loss
+        return train_loss, entity_loss

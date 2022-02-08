@@ -67,6 +67,8 @@ class SpERTTrainer(BaseTrainer):
             max_span_size = model.span_sizes[self.si.item()]
             train_dataset._max_span_size = max_span_size
             theta_opt = torch.optim.SGD([model.theta], lr=0.01)
+        else:
+            theta_opt = None
         
 
         # SpERT is currently optimized on a single GPU and not thoroughly tested in a multi GPU setup
@@ -102,7 +104,12 @@ class SpERTTrainer(BaseTrainer):
             if self._args.learn_span_size:
                 max_span_size = model.span_sizes[torch.argmax(model.theta)]
                 validation_dataset._max_span_size = max_span_size
-            if not args.final_eval or (epoch == args.epochs - 1):
+        
+        if args.final_eval:# or (epoch == args.epochs - 1):
+            for s in [5, 15, 25]:
+                print('\n', "="*10, "max span size:", s, "="*10, '\n')
+                validation_dataset._max_span_size = s
+
                 self._eval(model, validation_dataset, input_reader, epoch + 1, updates_epoch)
 
         # save final model
@@ -134,14 +141,17 @@ class SpERTTrainer(BaseTrainer):
 
         # load model
         model = self._load_model(input_reader)
-        print(model.theta)
         # return
         model.to(self._device)
         if self._args.learn_span_size:
             max_span_size = model.span_sizes[torch.argmax(model.theta)]
             test_dataset._max_span_size = max_span_size
+            print(model.theta)
 
         # evaluate
+        # for s in [5, 15, 25, 35]:
+        #     print('\n', "="*10, "max span size:", s, "="*10, '\n')
+        #     test_dataset._max_span_size = s
         self._eval(model, test_dataset, input_reader)
 
         self._logger.info("Logged in: %s" % self._log_path)
@@ -210,7 +220,7 @@ class SpERTTrainer(BaseTrainer):
                                               relations=batch['rels'], rel_masks=batch['rel_masks'])
 
             # compute loss and optimize parameters
-            batch_loss = compute_loss.compute(entity_logits=entity_logits, rel_logits=rel_logits,
+            batch_loss, entity_loss = compute_loss.compute(entity_logits=entity_logits, rel_logits=rel_logits,
                                               rel_types=batch['rel_types'], entity_types=batch['entity_types'],
                                               entity_sample_masks=batch['entity_sample_masks'],
                                               rel_sample_masks=batch['rel_sample_masks'])
@@ -218,20 +228,26 @@ class SpERTTrainer(BaseTrainer):
             if self._args.learn_span_size:
                 one_hot_theta = torch.nn.functional.one_hot(self.si.squeeze(), len(model.span_sizes))
                 softmax_theta = torch.nn.functional.softmax(model.theta, dim=-1)
-                model.theta.grad = batch_loss * (one_hot_theta - softmax_theta)
+                model.theta.grad = entity_loss * (one_hot_theta - softmax_theta)
                 theta_opt.step()
 
-                self.si = torch.multinomial(model.theta, 1).to(self._device)
-                max_span_size = model.span_sizes[self.si.item()]
-                dataset._max_span_size = max_span_size
-            
+                            
             # logging
             iteration += 1
             global_iteration = epoch * updates_epoch + iteration
 
             if global_iteration % self._args.train_log_iter == 0:
-                print(model.theta)
+                # print(softmax_theta, self.si.item())
+                # print(model.theta.grad)
                 self._log_train(optimizer, batch_loss.item(), epoch, iteration, global_iteration, dataset.label)
+
+
+            if self._args.learn_span_size:
+                softmax_theta = torch.nn.functional.softmax(model.theta, dim=-1)
+                self.si = torch.multinomial(softmax_theta, 1).to(self._device)
+                max_span_size = model.span_sizes[self.si.item()]
+                dataset._max_span_size = max_span_size
+
                 
         return iteration
 

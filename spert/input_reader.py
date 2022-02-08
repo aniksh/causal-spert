@@ -5,10 +5,21 @@ from logging import Logger
 from typing import List
 from tqdm import tqdm
 from transformers import BertTokenizer
+from collections import Counter
 
 from spert import util
-from spert.entities import Dataset, EntityType, RelationType, Entity, Relation, Document
+from spert.entities import Dataset, EntityType, RelationType, Entity, Relation, Document, TokenSpan
 from spert.opt import spacy
+
+import spacy
+from spacy.tokens import Doc
+from benepar import BeneparComponent
+
+
+nlp = spacy.load("en_core_web_sm", disable=["tagger", "ner"])
+nlp.add_pipe(BeneparComponent("benepar_en3"))
+
+
 
 
 class BaseInputReader(ABC):
@@ -48,6 +59,7 @@ class BaseInputReader(ABC):
         self._neg_entity_count = neg_entity_count
         self._neg_rel_count = neg_rel_count
         self._max_span_size = max_span_size
+        self._span_sizes = []
 
         self._datasets = dict()
 
@@ -121,6 +133,8 @@ class JsonInputReader(BaseInputReader):
                           self._neg_rel_count, self._max_span_size)
         self._parse_dataset(dataset_path, dataset)
         self._datasets[dataset_label] = dataset
+        span_counts = sorted(Counter(self._span_sizes).items())
+        dataset._span_sizes, dataset._span_counts = zip(*span_counts)
         return dataset
 
     def _parse_dataset(self, dataset_path, dataset):
@@ -142,10 +156,25 @@ class JsonInputReader(BaseInputReader):
         # parse relations
         relations = self._parse_relations(jrelations, entities, dataset)
 
+        spans = self._parse_spans(doc_tokens)
+
         # create document
-        document = dataset.create_document(doc_tokens, entities, relations, doc_encoding)
+        document = dataset.create_document(doc_tokens, entities, relations, doc_encoding, spans)
 
         return document
+
+    def _parse_spans(self, doc_tokens):
+        spans = []
+        docsp = Doc(nlp.vocab, words=[t.phrase for t in doc_tokens])
+        for name, proc in nlp.pipeline:
+            docsp = proc(docsp)
+                                                                     
+        for s in docsp.sents:
+            for c in s._.constituents:
+                spans.append(TokenSpan(doc_tokens[c.start:c.end]).span)
+
+        return spans
+        
 
     def _parse_entities(self, jentities, doc_tokens, dataset) -> List[Entity]:
         entities = []
@@ -161,6 +190,7 @@ class JsonInputReader(BaseInputReader):
             phrase = " ".join([t.phrase for t in tokens])
             entity = dataset.create_entity(entity_type, tokens, phrase)
             entities.append(entity)
+            self._span_sizes.append(end - start)
 
         return entities
 

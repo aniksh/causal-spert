@@ -65,7 +65,7 @@ if __name__ == '__main__':
     args, _ = arg_parser.parse_known_args()
 
     # Set default values
-    args.label = "{}-batch{}-epoch{}-neg{}-span{}".format(args.dataset,
+    args.label = "{}-batch{}-epoch{}-neg{}-span{}-const".format(args.dataset,
                                                           args.train_batch_size,
                                                           args.epochs,
                                                           args.neg_entity_count,

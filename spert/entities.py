@@ -260,7 +260,7 @@ class Relation:
 
 class Document:
     def __init__(self, doc_id: int, tokens: List[Token], entities: List[Entity], relations: List[Relation],
-                 encoding: List[int]):
+                 encoding: List[int], spans):
         self._doc_id = doc_id  # ID within the corresponding dataset
 
         self._tokens = tokens
@@ -269,6 +269,8 @@ class Document:
 
         # byte-pair document encoding including special tokens ([CLS] and [SEP])
         self._encoding = encoding
+
+        self.spans = spans
 
     @property
     def doc_id(self):
@@ -365,8 +367,8 @@ class Dataset(TorchDataset):
         self._tid += 1
         return token
 
-    def create_document(self, tokens, entity_mentions, relations, doc_encoding) -> Document:
-        document = Document(self._doc_id, tokens, entity_mentions, relations, doc_encoding)
+    def create_document(self, tokens, entity_mentions, relations, doc_encoding, spans) -> Document:
+        document = Document(self._doc_id, tokens, entity_mentions, relations, doc_encoding, spans)
         self._documents[self._doc_id] = document
         self._doc_id += 1
 
@@ -392,7 +394,8 @@ class Dataset(TorchDataset):
 
         if self._mode == Dataset.TRAIN_MODE:
             return sampling.create_train_sample(doc, self._neg_entity_count, self._neg_rel_count,
-                                                self._max_span_size, len(self._rel_types))
+                                                self._max_span_size, len(self._rel_types),
+                                                self._span_sizes, self._span_counts)
         else:
             return sampling.create_eval_sample(doc, self._max_span_size)
 

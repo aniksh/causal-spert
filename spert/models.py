@@ -44,7 +44,7 @@ class SpERT(BertPreTrainedModel):
         self.size_embeddings = nn.Embedding(200, size_embedding)
         self.dropout = nn.Dropout(prop_drop)
         if learn_span_size:
-            self.span_sizes = list(range(5,41,20))
+            self.span_sizes = list(range(5,31,10)) # [10, 20, 30, 40, 50] 
             self.theta = nn.Parameter(0.5 + 0.01 * torch.randn(len(self.span_sizes)), requires_grad=False)
 
         self._cls_token = cls_token
