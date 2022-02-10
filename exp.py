@@ -65,7 +65,7 @@ if __name__ == '__main__':
     args, _ = arg_parser.parse_known_args()
 
     # Set default values
-    args.label = "{}-batch{}-epoch{}-neg{}-span{}-const".format(args.dataset,
+    args.label = "{}-batch{}-epoch{}-neg{}-span{}".format(args.dataset,
                                                           args.train_batch_size,
                                                           args.epochs,
                                                           args.neg_entity_count,
@@ -79,8 +79,10 @@ if __name__ == '__main__':
     # args.store_examples = True
     args.final_eval = True
     # args.max_pairs = 100
-    args.log_path = "/gpfs/u/home/SNTE/SNTEnksh/scratch/output/spert/log"
-    args.save_path = "/gpfs/u/home/SNTE/SNTEnksh/scratch/output/spert/save"
+    # args.log_path = "/gpfs/u/home/SNTE/SNTEnksh/scratch/output/spert/log"
+    args.log_path = "log"
+    # args.save_path = "/gpfs/u/home/SNTE/SNTEnksh/scratch/output/spert/save"
+    args.save_path = "save"
     if args.mode != "train":
       args.model_path = os.path.join(args.save_path, args.label, "final_model")
       args.tokenizer_path = args.model_path

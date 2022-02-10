@@ -11,15 +11,6 @@ from spert import util
 from spert.entities import Dataset, EntityType, RelationType, Entity, Relation, Document, TokenSpan
 from spert.opt import spacy
 
-import spacy
-from spacy.tokens import Doc
-from benepar import BeneparComponent
-
-
-nlp = spacy.load("en_core_web_sm", disable=["tagger", "ner"])
-nlp.add_pipe(BeneparComponent("benepar_en3"))
-
-
 
 
 class BaseInputReader(ABC):
@@ -128,6 +119,17 @@ class JsonInputReader(BaseInputReader):
                  neg_rel_count: int = None, max_span_size: int = None, logger: Logger = None):
         super().__init__(types_path, tokenizer, neg_entity_count, neg_rel_count, max_span_size, logger)
 
+        if max_span_size == 0:
+            import spacy, benepar
+            from spacy.tokens import Doc
+            
+            self.nlp = spacy.load("en_core_web_sm", disable=["tagger", "ner"])
+            if spacy.__version__.startswith('2'):
+                self.nlp.add_pipe(benepar.BeneparComponent("benepar_en3"))
+            else:
+                self.nlp.add_pipe("benepar", config={"model": "benepar_en3"})
+
+
     def read(self, dataset_path, dataset_label):
         dataset = Dataset(dataset_label, self._relation_types, self._entity_types, self._neg_entity_count,
                           self._neg_rel_count, self._max_span_size)
@@ -156,7 +158,10 @@ class JsonInputReader(BaseInputReader):
         # parse relations
         relations = self._parse_relations(jrelations, entities, dataset)
 
-        spans = self._parse_spans(doc_tokens)
+        if self._max_span_size == 0:
+            spans = self._parse_spans(doc_tokens)
+        else:
+            spans = []
 
         # create document
         document = dataset.create_document(doc_tokens, entities, relations, doc_encoding, spans)
@@ -166,7 +171,7 @@ class JsonInputReader(BaseInputReader):
     def _parse_spans(self, doc_tokens):
         spans = []
         docsp = Doc(nlp.vocab, words=[t.phrase for t in doc_tokens])
-        for name, proc in nlp.pipeline:
+        for name, proc in self.nlp.pipeline:
             docsp = proc(docsp)
                                                                      
         for s in docsp.sents:

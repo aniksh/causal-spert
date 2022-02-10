@@ -106,10 +106,14 @@ class SpERTTrainer(BaseTrainer):
                 validation_dataset._max_span_size = max_span_size
         
         if args.final_eval:# or (epoch == args.epochs - 1):
-            for s in [5, 15, 25]:
-                print('\n', "="*10, "max span size:", s, "="*10, '\n')
-                validation_dataset._max_span_size = s
+            if self._args.max_span_size == 0:
+                for s in [5, 15, 25]:
+                    print('\n', "="*10, "max span size:", s, "="*10, '\n')
+                    validation_dataset._max_span_size = s
+                    
+                    self._eval(model, validation_dataset, input_reader, epoch + 1, updates_epoch)
 
+            else:
                 self._eval(model, validation_dataset, input_reader, epoch + 1, updates_epoch)
 
         # save final model
@@ -149,10 +153,14 @@ class SpERTTrainer(BaseTrainer):
             print(model.theta)
 
         # evaluate
-        # for s in [5, 15, 25, 35]:
-        #     print('\n', "="*10, "max span size:", s, "="*10, '\n')
-        #     test_dataset._max_span_size = s
-        self._eval(model, test_dataset, input_reader)
+        if self._args.max_span_size == 0:
+            for s in [5, 15, 25, 35]:
+                print('\n', "="*10, "max span size:", s, "="*10, '\n')
+                test_dataset._max_span_size = s
+                
+                self._eval(model, test_dataset, input_reader)
+        else:
+            self._eval(model, test_dataset, input_reader)
 
         self._logger.info("Logged in: %s" % self._log_path)
         self._close_summary_writer()

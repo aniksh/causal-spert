@@ -112,4 +112,10 @@ runs/
 *.state
 checkpoint
 logs/
+configs/
+scripts/
 bert-base-cased/
+job.sh
+config_reader.py
+compare_results.py
+dataset.zip
