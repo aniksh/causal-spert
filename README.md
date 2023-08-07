@@ -1,5 +1,5 @@
 # SpERT (Span-based Entity and Relation Transformer) for Causal Relation Extraction
-PyTorch code of SpERT (Span-based Entity and Relation Transformer) for Causal Relation Extraction. 
+PyTorch code of [SpERT](https://github.com/lavis-nlp/spert) (Span-based Entity and Relation Transformer) for Causal Relation Extraction. Adapted from https://github.com/lavis-nlp/spert
 
 ## Setup
 ### Requirements
@@ -49,4 +49,3 @@ python exp.py eval --dataset because-crest \
 ```
 
 Set `max_span_size` to 0 to learn sample negative examples using constituency parse.
-``

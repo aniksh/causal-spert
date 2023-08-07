@@ -17,10 +17,6 @@ def get_token(h: torch.tensor, x: torch.tensor, token: int):
 
     # get contextualized embedding of given token
     token_h = token_h[flat == token, :]
-    # except Exception as e:
-    #     print(token)
-    #     print(token_h)
-    #     raise e
 
     return token_h
 
